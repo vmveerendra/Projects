@@ -1,0 +1,204 @@
+Database backup;
+
+#!/bin/bash
+
+# MySQL database credentials
+db_user="your_username"
+db_password="your_password"
+
+# Backup directory
+backup_dir="/path/to/backup/directory/"
+
+# Get the current date and time for the backup filename
+timestamp=$(date '+%Y%m%d%H%M%S')
+
+# List of databases to backup (you can add more databases to this list)
+databases=("database1" "database2")
+
+# Ensure the backup directory exists
+mkdir -p "$backup_dir"
+
+# Loop through the list of databases and create backups
+for database in "${databases[@]}"; do
+    backup_file="$backup_dir$database_$timestamp.sql"
+    mysqldump --user="$db_user" --password="$db_password" --databases "$database" > "$backup_file"
+    if [ $? -eq 0 ]; then
+        echo "Backup of $database completed successfully."
+    else
+        echo "Error: Backup of $database failed."
+    fi
+done
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+
+MORE THAN ONE DATABASES:
+
+#!/bin/bash
+
+# MySQL database credentials
+db_user="your_username"
+db_password="your_password"
+
+# Backup directory
+backup_dir="/path/to/backup/directory/"
+
+# Get the current date and time for the backup filename
+timestamp=$(date '+%Y%m%d%H%M%S')
+
+# Ensure the backup directory exists
+mkdir -p "$backup_dir"
+
+# Get a list of all databases on the MySQL server
+all_databases=$(mysql --user="$db_user" --password="$db_password" -e "SHOW DATABASES;" | grep -Ev "Database|information_schema|performance_schema|mysql")
+
+# Loop through all databases and create backups
+for database in $all_databases; do
+    backup_file="$backup_dir${database}_${timestamp}.sql"
+    mysqldump --user="$db_user" --password="$db_password" --databases "$database" > "$backup_file"
+    if [ $? -eq 0 ]; then
+        echo "Backup of $database completed successfully."
+    else
+        echo "Error: Backup of $database failed."
+    fi
+done
+
+
+---------------------------------------------------------user-------------------------------------------------------------------------------------------
+Create New user:
+
+#!/bin/bash
+
+# MySQL database credentials
+db_user="root"
+db_password="your_root_password"
+
+# New user details
+new_user="new_username"
+new_user_password="new_password"
+
+# Database and permissions
+database_name="your_database"
+permissions="SELECT, INSERT, UPDATE, DELETE"  # Add the desired permissions
+
+# MySQL commands to create the user and grant permissions
+mysql -u "$db_user" -p"$db_password" <<EOF
+CREATE USER '$new_user'@'localhost' IDENTIFIED BY '$new_user_password';
+GRANT $permissions ON $database_name.* TO '$new_user'@'localhost';
+FLUSH PRIVILEGES;
+EOF
+
+# Check the exit status
+if [ $? -eq 0 ]; then
+    echo "User $new_user created with permissions on $database_name."
+else
+    echo "Error: User creation and permission assignment failed."
+fi
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+FOR SINGLE DATABASE IN YAML:
+
+---
+- name: MySQL Database Backup
+  hosts: your_mysql_server
+  become: yes  # You may need to escalate privileges to run MySQL commands as root
+
+  vars:
+    db_user: your_username
+    db_password: your_password
+    backup_dir: /path/to/backup/directory/
+    database_to_backup: your_database_name
+    timestamp: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+
+  tasks:
+    - name: Ensure backup directory exists
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+      become_user: "{{ db_user }}"
+
+    - name: Create backup for the specified database
+      command: >
+        mysqldump -u {{ db_user }} -p{{ db_password }} --databases {{ database_to_backup }} >
+        {{ backup_dir }}{{ database_to_backup }}_{{ timestamp }}.sql
+      become_user: "{{ db_user }}"
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+FOR MORE THAN ONE DATABASES IN YAML:
+
+---
+- name: MySQL Database Backup
+  hosts: your_mysql_server
+  become: yes  # You may need to escalate privileges to run MySQL commands as root
+
+  vars:
+    db_user: your_username
+    db_password: your_password
+    backup_dir: /path/to/backup/directory/
+    timestamp: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+
+  tasks:
+    - name: Ensure backup directory exists
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+      become_user: "{{ db_user }}"
+
+    - name: Get a list of all databases
+      shell: |
+        mysql -u {{ db_user }} -p{{ db_password }} -e "SHOW DATABASES;" | grep -Ev 'Database|information_schema|performance_schema|mysql'
+      register: all_databases
+      become_user: "{{ db_user }}"
+      changed_when: false
+
+    - name: Loop through databases and create backups
+      command: >
+        mysqldump -u {{ db_user }} -p{{ db_password }} --databases {{ item }} >
+        {{ backup_dir }}{{ item }}_{{ timestamp }}.sql
+      with_items: "{{ all_databases.stdout_lines }}"
+      when: "'mysql_dump' not in item.stderr"
+      become_user: "{{ db_user }}"
+-------------------------------------------------------------------------------------------------------------------------------------------
+
+USING PYTHON SCRIPT:
+
+import subprocess
+import datetime
+
+# MySQL database credentials
+db_user = "your_username"
+db_password = "your_password"
+
+# Database name to back up
+database_to_backup = "your_database_name"
+
+# Backup directory
+backup_dir = "/path/to/backup/directory/"
+
+# Get the current date and time for the backup filename
+timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+
+# Ensure the backup directory exists
+subprocess.run(["mkdir", "-p", backup_dir])
+
+# Create a backup file
+backup_file = f"{backup_dir}{database_to_backup}_{timestamp}.sql"
+backup_command = [
+    "mysqldump",
+    "--user=" + db_user,
+    "--password=" + db_password,
+    "--databases",
+    database_to_backup,
+    f"> {backup_file}",
+]
+
+try:
+    subprocess.run(" ".join(backup_command), shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    print(f"Backup of {database_to_backup} completed successfully. File: {backup_file}")
+except subprocess.CalledProcessError as e:
+    print(f"Error: Backup of {database_to_backup} failed. Error message: {e.stderr.decode().strip()}")
