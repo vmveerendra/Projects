@@ -1,0 +1,17 @@
+<VirtualHost *:443>
+  # Admin email, Server Name (domain name), and any aliases
+  ServerAdmin domain.com
+  ServerName  domain.com
+  ServerAlias www.domain.com
+  # Index file and Document Root (where the public files are located)
+  DirectoryIndex index.html index.php
+  DocumentRoot /var/www/html/domain.com
+    <Directory /var/www/html/domain.com>
+        Options FollowSymLinks MultiViews
+        AllowOverride All
+        #Order allow,deny
+        Require all granted
+        Allow from all
+        #Header set Access-Control-Allow-Origin "*"
+  </Directory>
+</VirtualHost>
